@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Compile all sources
+        run: python -m py_compile $(git ls-files '*.py')
+
+      - name: Run unittest suite
+        run: python -m unittest discover -s tests -v
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build distribution
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Check the package imports
+        run: |
+          python -m pip install dist/*.whl
+          python -c "import llm_extract; print(llm_extract.__all__)"

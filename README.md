@@ -1,5 +1,7 @@
 # llm-extract-py
 
+[![CI](https://github.com/MukundaKatta/llm-extract-py/actions/workflows/ci.yml/badge.svg)](https://github.com/MukundaKatta/llm-extract-py/actions/workflows/ci.yml)
+
 Extract structured data from LLM output: JSON, code blocks, lists, booleans, and more.
 
 ```bash
@@ -61,10 +63,14 @@ Extracts a value from `Key: value`, `**Key**: value`, or `key = value` patterns.
 ### `extract_bool(text)`
 Returns `True`, `False`, or `None` from yes/no LLM answers.
 
+The **earliest-occurring** sentiment word decides the answer, so a reply that
+opens with a "no" is not flipped by a positive word later in the sentence.
+
 ```python
-extract_bool("Yes, that is correct.").value  # True
-extract_bool("No, that is wrong.").value     # False
-extract_bool("It depends.").value            # None
+extract_bool("Yes, that is correct.").value      # True
+extract_bool("No, that is wrong.").value         # False
+extract_bool("It depends.").value                # None
+extract_bool("No, that is not correct.").value   # False (leading "No" wins)
 ```
 
 ## ExtractResult
@@ -79,3 +85,17 @@ r.raw    # original matched text
 ```
 
 ## Zero dependencies
+
+The library has no runtime dependencies and is fully type-hinted (it ships a
+`py.typed` marker, so type checkers pick up the annotations automatically).
+
+## Development
+
+Run the test suite with the standard library only — no test runner to install:
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+CI runs the same suite against Python 3.9–3.13 and a packaging smoke test on
+every push and pull request.

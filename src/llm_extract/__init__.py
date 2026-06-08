@@ -191,19 +191,30 @@ def extract_bool(text: str) -> ExtractResult:
     """
     Extract a boolean answer from LLM output.
     Returns True/False or None if ambiguous.
+
+    The *earliest-occurring* sentiment word wins, so a reply like
+    ``"No, that is not correct."`` resolves to ``False`` even though it also
+    contains the positive word "correct". This mirrors how a human reads the
+    leading word as the answer.
     """
     lowered = text.lower().strip()
     positive = ["yes", "true", "correct", "affirmative", "agree", "right", "confirmed"]
     negative = ["no", "false", "incorrect", "negative", "disagree", "wrong", "denied"]
 
+    best_value: bool | None = None
+    best_index = len(lowered) + 1
     for word in positive:
-        if re.search(rf"\b{word}\b", lowered):
-            return ExtractResult(value=True, raw=text, found=True)
+        m = re.search(rf"\b{word}\b", lowered)
+        if m is not None and m.start() < best_index:
+            best_value, best_index = True, m.start()
     for word in negative:
-        if re.search(rf"\b{word}\b", lowered):
-            return ExtractResult(value=False, raw=text, found=True)
+        m = re.search(rf"\b{word}\b", lowered)
+        if m is not None and m.start() < best_index:
+            best_value, best_index = False, m.start()
 
-    return ExtractResult(value=None, raw=text, found=False)
+    if best_value is None:
+        return ExtractResult(value=None, raw=text, found=False)
+    return ExtractResult(value=best_value, raw=text, found=True)
 
 
 __all__ = [
