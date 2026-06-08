@@ -1,4 +1,3 @@
-import pytest
 from llm_extract import (
     extract_json,
     extract_code,
@@ -7,13 +6,13 @@ from llm_extract import (
     strip_thinking,
     extract_key_value,
     extract_bool,
-    ExtractResult,
 )
 
 
 # ---------------------------------------------------------------------------
 # extract_json
 # ---------------------------------------------------------------------------
+
 
 def test_json_object_in_fence():
     text = '```json\n{"key": "value"}\n```'
@@ -23,7 +22,7 @@ def test_json_object_in_fence():
 
 
 def test_json_array_in_fence():
-    text = '```json\n[1, 2, 3]\n```'
+    text = "```json\n[1, 2, 3]\n```"
     r = extract_json(text)
     assert r.found
     assert r.value == [1, 2, 3]
@@ -37,7 +36,7 @@ def test_json_bare_object_in_prose():
 
 
 def test_json_bare_array():
-    text = 'Items: [1, 2, 3] end'
+    text = "Items: [1, 2, 3] end"
     r = extract_json(text)
     assert r.found
     assert r.value == [1, 2, 3]
@@ -64,15 +63,40 @@ def test_json_generic_fence_fallback():
 
 
 def test_json_with_prose_around():
-    text = "Here is the answer:\n```json\n{\"ok\": true}\n```\nDone."
+    text = 'Here is the answer:\n```json\n{"ok": true}\n```\nDone.'
     r = extract_json(text)
     assert r.found
     assert r.value["ok"] is True
 
 
+def test_json_array_before_object_returns_array():
+    # The array appears first in the text, so it should be returned even though
+    # an object follows. Guards against object-vs-array preference overriding
+    # textual position.
+    text = 'First an array [1, 2, 3] then object {"k": 1}'
+    r = extract_json(text)
+    assert r.found
+    assert r.value == [1, 2, 3]
+
+
+def test_json_object_before_array_returns_object():
+    text = 'Object {"k": 1} comes before array [1, 2, 3]'
+    r = extract_json(text)
+    assert r.found
+    assert r.value == {"k": 1}
+
+
+def test_json_string_containing_brace():
+    text = '{"msg": "a } b", "n": 1}'
+    r = extract_json(text)
+    assert r.found
+    assert r.value == {"msg": "a } b", "n": 1}
+
+
 # ---------------------------------------------------------------------------
 # extract_code
 # ---------------------------------------------------------------------------
+
 
 def test_code_python_fence():
     text = '```python\nprint("hello")\n```'
@@ -82,14 +106,14 @@ def test_code_python_fence():
 
 
 def test_code_any_language():
-    text = '```typescript\nconst x = 1;\n```'
+    text = "```typescript\nconst x = 1;\n```"
     r = extract_code(text)
     assert r.found
     assert "const x = 1" in r.value
 
 
 def test_code_wrong_language_falls_back():
-    text = '```typescript\nconst x = 1;\n```'
+    text = "```typescript\nconst x = 1;\n```"
     r = extract_code(text, language="python")
     assert r.found  # falls back to any block
 
@@ -109,6 +133,7 @@ def test_code_strips_whitespace():
 # ---------------------------------------------------------------------------
 # extract_all_code_blocks
 # ---------------------------------------------------------------------------
+
 
 def test_all_code_blocks_multiple():
     text = "```python\nx=1\n```\n\n```js\nconsole.log()\n```"
@@ -134,6 +159,7 @@ def test_all_code_blocks_empty():
 # ---------------------------------------------------------------------------
 # extract_list
 # ---------------------------------------------------------------------------
+
 
 def test_list_bullet_dash():
     text = "Items:\n- apple\n- banana\n- cherry"
@@ -173,6 +199,7 @@ def test_list_strips_items():
 # strip_thinking
 # ---------------------------------------------------------------------------
 
+
 def test_strip_thinking_basic():
     text = "<thinking>This is my reasoning.</thinking>The answer is 42."
     assert strip_thinking(text) == "The answer is 42."
@@ -205,6 +232,7 @@ def test_strip_thinking_multiple():
 # ---------------------------------------------------------------------------
 # extract_key_value
 # ---------------------------------------------------------------------------
+
 
 def test_key_value_colon():
     r = extract_key_value("Status: active\nOther: stuff", "Status")
@@ -239,6 +267,7 @@ def test_key_value_not_found():
 # ---------------------------------------------------------------------------
 # extract_bool
 # ---------------------------------------------------------------------------
+
 
 def test_bool_yes():
     assert extract_bool("Yes, I agree.").value is True

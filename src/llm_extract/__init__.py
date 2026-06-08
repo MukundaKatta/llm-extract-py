@@ -19,6 +19,7 @@ class ExtractResult:
 # JSON extraction
 # ---------------------------------------------------------------------------
 
+
 def extract_json(text: str, *, allow_partial: bool = False) -> ExtractResult:
     """
     Extract the first valid JSON object or array from text.
@@ -38,14 +39,21 @@ def extract_json(text: str, *, allow_partial: bool = False) -> ExtractResult:
         if m:
             candidate = m.group(1).strip()
             try:
-                return ExtractResult(value=json.loads(candidate), raw=candidate, found=True)
+                return ExtractResult(
+                    value=json.loads(candidate), raw=candidate, found=True
+                )
             except json.JSONDecodeError:
                 pass
 
-    # Try to find a JSON object or array in the raw text
-    for start_char, end_char in [('{', '}'), ('[', ']')]:
+    # Try to find a JSON object or array in the raw text. Scan candidates of
+    # both kinds and return whichever valid JSON value *starts earliest* in the
+    # text, so the documented "first" contract is honored regardless of whether
+    # an object or an array appears first.
+    best: ExtractResult | None = None
+    best_start = len(text)
+    for start_char, end_char in [("{", "}"), ("[", "]")]:
         start = text.find(start_char)
-        if start == -1:
+        if start == -1 or start >= best_start:
             continue
         depth = 0
         in_string = False
@@ -54,10 +62,10 @@ def extract_json(text: str, *, allow_partial: bool = False) -> ExtractResult:
             if escape:
                 escape = False
                 continue
-            if ch == '\\' and in_string:
+            if ch == "\\" and in_string:
                 escape = True
                 continue
-            if ch == '"' and not escape:
+            if ch == '"':
                 in_string = not in_string
                 continue
             if not in_string:
@@ -66,22 +74,27 @@ def extract_json(text: str, *, allow_partial: bool = False) -> ExtractResult:
                 elif ch == end_char:
                     depth -= 1
                     if depth == 0:
-                        candidate = text[start:i + 1]
+                        candidate = text[start : i + 1]
                         try:
-                            return ExtractResult(
+                            best = ExtractResult(
                                 value=json.loads(candidate),
                                 raw=candidate,
                                 found=True,
                             )
+                            best_start = start
                         except json.JSONDecodeError:
-                            break
+                            pass
+                        break
 
+    if best is not None:
+        return best
     return ExtractResult(value=None, raw=text, found=False)
 
 
 # ---------------------------------------------------------------------------
 # Code block extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_code(text: str, language: str | None = None) -> ExtractResult:
     """
@@ -123,6 +136,7 @@ def extract_all_code_blocks(text: str) -> list[dict]:
 # List / bullet extraction
 # ---------------------------------------------------------------------------
 
+
 def extract_list(text: str) -> ExtractResult:
     """
     Extract a bulleted or numbered list from text.
@@ -139,14 +153,18 @@ def extract_list(text: str) -> ExtractResult:
 # Thinking tag strip
 # ---------------------------------------------------------------------------
 
+
 def strip_thinking(text: str) -> str:
     """Strip <thinking>...</thinking> tags from Claude extended-thinking output."""
-    return re.sub(r"<thinking>[\s\S]*?</thinking>", "", text, flags=re.IGNORECASE).strip()
+    return re.sub(
+        r"<thinking>[\s\S]*?</thinking>", "", text, flags=re.IGNORECASE
+    ).strip()
 
 
 # ---------------------------------------------------------------------------
 # Key-value extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_key_value(text: str, key: str) -> ExtractResult:
     """
@@ -167,6 +185,7 @@ def extract_key_value(text: str, key: str) -> ExtractResult:
 # ---------------------------------------------------------------------------
 # Yes/No extraction
 # ---------------------------------------------------------------------------
+
 
 def extract_bool(text: str) -> ExtractResult:
     """
